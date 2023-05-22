@@ -13,3 +13,4 @@
 ### Test
 
 - `anchor test --provider.cluster localnet`
+- `anchor test --skip-build --skip-deploy`
