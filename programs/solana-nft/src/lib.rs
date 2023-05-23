@@ -17,14 +17,6 @@ declare_id!("GjsR1GVT5G51oMuTDrRzPporaknzWM39TgJs9n84Wmti");
 pub mod solana_nft {
     use super::*;
 
-    pub fn create_user_account(
-        ctx: Context<CreateUserAccount>
-    ) -> Result<()> {
-        ctx.accounts.user_pda.bump = *ctx.bumps.get("user_pda").unwrap();
-        ctx.accounts.user_pda.collections_qty = 0;
-        Ok(())
-    }
-
     pub fn mint_collection(
         ctx: Context<MintCollection>,
         collection_name: String,
@@ -211,38 +203,11 @@ pub mod solana_nft {
         ctx.accounts.collection_pda.symbol = collection_symbol;
         ctx.accounts.collection_pda.bump = *ctx.bumps.get("collection_pda").unwrap();
         ctx.accounts.collection_pda.collection_mint = ctx.accounts.mint.key();
-        ctx.accounts.collection_pda.collection_id = ctx.accounts.user_pda.collections_qty;
         ctx.accounts.collection_pda.owner = ctx.accounts.payer.key();
-        ctx.accounts.user_pda.collections_qty += 1;
 
         Ok(())
     }
 
-}
-
-#[derive(Accounts)]
-pub struct CreateUserAccount<'info> {
-    #[account(
-        init,
-        payer = payer,
-        space = 200,
-        seeds = [
-            b"user_account".as_ref(), payer.to_account_info().key.as_ref()
-        ],
-        bump
-    )]
-    user_pda: Account<'info, UserPDA>,
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub rent: Sysvar<'info, Rent>,
-    pub system_program: Program<'info, System>,
-}
-
-#[account]
-#[derive(Default)]
-pub struct UserPDA {
-    pub collections_qty: u64,
-    pub bump: u8,
 }
 
 #[derive(Accounts)]
@@ -262,16 +227,6 @@ pub struct MintCollection<'info> {
     pub rent: Sysvar<'info, Rent>,
 
     pub system_program: Program<'info, System>,
-
-    #[account(
-        mut,
-        seeds = [
-            b"user_account".as_ref(),
-            payer.to_account_info().key.as_ref()
-        ],
-        bump = user_pda.bump
-    )]
-    user_pda: Account<'info, UserPDA>,
 
     pub token_program: Program<'info, token::Token>,
 
@@ -303,8 +258,7 @@ pub struct MintCollection<'info> {
         seeds = [
             b"collection".as_ref(),
             payer.to_account_info().key.as_ref(),
-            user_pda.collections_qty.to_le_bytes().as_ref()
-            // mint.to_account_info().key.as_ref()
+            mint.to_account_info().key.as_ref()
         ],
         bump
     )]
@@ -320,6 +274,5 @@ pub struct CollectionPdaAccount {
     pub mint_number: u16,
     pub owner: Pubkey,
     pub collection_mint: Pubkey,
-    pub collection_id: u64,
     pub bump: u8,
 }

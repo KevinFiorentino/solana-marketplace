@@ -21,15 +21,6 @@ describe('Solana NFT', () => {
 
   const program = anchor.workspace.SolanaNft as Program<SolanaNft>;
 
-  const [userPDA] = anchor.web3.PublicKey
-    .findProgramAddressSync(
-      [
-        Buffer.from('user_account'),
-        provider.wallet.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
-
   const mintKeypair = Keypair.generate();
   console.log('mintKeypair', mintKeypair.publicKey.toString());
 
@@ -64,7 +55,7 @@ describe('Solana NFT', () => {
       [
         Buffer.from('collection'),
         provider.wallet.publicKey.toBuffer(),
-        new BN(0).toArrayLike(Buffer, 'le', 8),
+        mintKeypair.publicKey.toBuffer(),
       ],
       program.programId
     );
@@ -82,26 +73,6 @@ describe('Solana NFT', () => {
     );
 
 
-
-
-  it('Create user', async () => {
-    const tx = await program.methods
-      .createUserAccount()
-      .accounts({
-        userPda: userPDA,
-        rent: SYSVAR_RENT_PUBKEY,
-        payer: provider.wallet.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .rpc();
-    console.log('tx', tx);
-  });
-
-  it('Get users', async () => {
-    const users = await program.account.userPda.all();
-    console.log('users', users);
-    expect(1).equal(users.length);
-  });
 
   it('Mint collection', async () => {
 
@@ -125,7 +96,6 @@ describe('Solana NFT', () => {
         payer: provider.wallet.publicKey,
         rent: SYSVAR_RENT_PUBKEY,
         systemProgram: SystemProgram.programId,
-        userPda: userPDA,
         tokenProgram: TOKEN_PROGRAM_ID,
         tokenAccount: ATA,
         associatedTokenProgram: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
