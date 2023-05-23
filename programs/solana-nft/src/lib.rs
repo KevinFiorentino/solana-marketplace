@@ -22,9 +22,6 @@ pub mod solana_nft {
     ) -> Result<()> {
         ctx.accounts.user_pda.bump = *ctx.bumps.get("user_pda").unwrap();
         ctx.accounts.user_pda.collections_qty = 0;
-
-        msg!("user_pda: {}", *ctx.bumps.get("user_pda").unwrap());
-
         Ok(())
     }
 
@@ -307,6 +304,7 @@ pub struct MintCollection<'info> {
             b"collection".as_ref(),
             payer.to_account_info().key.as_ref(),
             user_pda.collections_qty.to_le_bytes().as_ref()
+            // mint.to_account_info().key.as_ref()
         ],
         bump
     )]

@@ -1,6 +1,6 @@
 import * as anchor from '@project-serum/anchor';
 import { Program, BN } from '@project-serum/anchor';
-import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY } from '@solana/web3.js';
+import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { SolanaNft } from '../target/types/solana_nft';
 import { expect } from 'chai';
@@ -31,6 +31,7 @@ describe('Solana NFT', () => {
     );
 
   const mintKeypair = Keypair.generate();
+  console.log('mintKeypair', mintKeypair.publicKey.toString());
 
   const ATA = getAssociatedTokenAddressSync(
     mintKeypair.publicKey,
@@ -103,7 +104,15 @@ describe('Solana NFT', () => {
   });
 
   it('Mint collection', async () => {
-    const tx = await program.methods
+
+    const t = new Transaction();
+
+    const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ 
+      units: 300000 
+    });
+    t.add(modifyComputeUnits);
+
+    const i = await program.methods
       .mintCollection(
         'My First Collection',
         'MFC',
@@ -126,15 +135,28 @@ describe('Solana NFT', () => {
         collectionAuthorityRecord: collectionAuthorityRecordPDA,
         collectionPda: collectionPDA,
       })
-      .signers([mintKeypair])
-      .rpc();
-    console.log('tx2', tx);
+      .instruction();
+
+    t.add(i);
+
+    const latestBlockHash = await provider.connection.getLatestBlockhash();
+    t.recentBlockhash = latestBlockHash.blockhash;
+    t.lastValidBlockHeight = latestBlockHash.lastValidBlockHeight;
+
+    t.feePayer = provider.wallet.publicKey;
+    t.sign(mintKeypair);
+
+    const tSigned = await provider.wallet.signTransaction(t);
+    const tx = await provider.connection.sendRawTransaction(tSigned.serialize());
+    const con = await provider.connection.confirmTransaction(tx);
+
+    console.log('tx confirm', con);
   });
 
   it('Get colletions', async () => {
     const collections = await program.account.collectionPdaAccount.all();
     console.log('collections', collections);
-    // expect(1).equal(users.length);
+    expect(1).equal(collections.length);
   });
 
 });
