@@ -22,7 +22,7 @@ pub mod solana_nft {
         collection_name: String,
         collection_symbol: String,
         metadata_uri: String,
-        pic_url: String,
+        image_uri: String,
     ) -> Result<()> {
 
         // Create an account to become it in the token_mint 
@@ -198,12 +198,13 @@ pub mod solana_nft {
             ],
         )?;
 
-        ctx.accounts.collection_pda.name = collection_name;
-        ctx.accounts.collection_pda.pic_url = pic_url;
-        ctx.accounts.collection_pda.symbol = collection_symbol;
-        ctx.accounts.collection_pda.bump = *ctx.bumps.get("collection_pda").unwrap();
-        ctx.accounts.collection_pda.collection_mint = ctx.accounts.mint.key();
         ctx.accounts.collection_pda.owner = ctx.accounts.payer.key();
+        ctx.accounts.collection_pda.collection_mint = ctx.accounts.mint.key();
+        ctx.accounts.collection_pda.name = collection_name;
+        ctx.accounts.collection_pda.symbol = collection_symbol;
+        ctx.accounts.collection_pda.image_uri = image_uri;
+        ctx.accounts.collection_pda.count_nfts = 0;
+        ctx.accounts.collection_pda.bump = *ctx.bumps.get("collection_pda").unwrap();
 
         Ok(())
     }
@@ -268,11 +269,11 @@ pub struct MintCollection<'info> {
 #[account]
 #[derive(Default)]
 pub struct CollectionPdaAccount {
-    pub pic_url: String,
-    pub name: String,
-    pub symbol: String,
-    pub mint_number: u16,
     pub owner: Pubkey,
     pub collection_mint: Pubkey,
+    pub name: String,
+    pub symbol: String,
+    pub image_uri: String,
+    pub count_nfts: u16,
     pub bump: u8,
 }

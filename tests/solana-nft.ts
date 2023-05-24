@@ -129,4 +129,17 @@ describe('Solana NFT', () => {
     expect(1).equal(collections.length);
   });
 
+  it('Get colletions by owner', async () => {
+    const collections = await program.account.collectionPdaAccount.all([
+      {
+        memcmp: {
+          bytes: provider.wallet.publicKey.toBase58(),
+          offset: 8
+        },
+      },
+    ]);
+    console.log('collections', collections);
+    expect(1).equal(collections.length);
+  });
+
 });
