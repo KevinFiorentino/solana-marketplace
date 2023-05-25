@@ -9,6 +9,12 @@ use {
     }
 };
 
+const DISCRIMINATOR_LENGTH: usize = 8;
+const PUBLIC_KEY_LENGTH: usize = 32;
+const STRING_PREFIX_LENGTH: usize = 4;
+const U18_LENGTH: usize = 2;
+const U8_LENGTH: usize = 1;
+
 declare_id!("GjsR1GVT5G51oMuTDrRzPporaknzWM39TgJs9n84Wmti");
 
 #[program]
@@ -19,8 +25,8 @@ pub mod solana_nft {
         ctx: Context<MintCollection>,
         collection_name: String,
         collection_symbol: String,
-        metadata_uri: String,
         image_uri: String,
+        metadata_uri: String,
     ) -> Result<()> {
 
         // Create an account to become it in the token_mint 
@@ -419,6 +425,12 @@ pub mod solana_nft {
 }
 
 #[derive(Accounts)]
+#[instruction(
+    collection_name: String,
+    collection_symbol: String,
+    image_uri: String,
+    _metadata_uri: String,
+)]
 pub struct MintCollection<'info> {
     /// CHECK:
     #[account(mut)]
@@ -461,8 +473,12 @@ pub struct MintCollection<'info> {
 
     #[account(
         init,
-        payer=mint_authority,
-        space = 1000,
+        payer = mint_authority,
+        space = CollectionAccount::get_space(
+            collection_name,
+            collection_symbol,
+            image_uri
+        ),
         seeds = [
             b"collection".as_ref(),
             payer.to_account_info().key.as_ref(),
@@ -470,7 +486,7 @@ pub struct MintCollection<'info> {
         ],
         bump
     )]
-    collection_pda: Box<Account<'info, CollectionPdaAccount>>,
+    collection_pda: Box<Account<'info, CollectionAccount>>,
 }
 
 #[derive(Accounts)]
@@ -523,7 +539,7 @@ pub struct MintNftFromCollection<'info> {
         ],
         bump = collection_pda.bump
     )]
-    collection_pda: Box<Account<'info, CollectionPdaAccount>>,
+    collection_pda: Box<Account<'info, CollectionAccount>>,
     
     /// CHECK:
     #[account(mut)]
@@ -540,7 +556,7 @@ pub struct MintNftFromCollection<'info> {
 
 #[account]
 #[derive(Default)]
-pub struct CollectionPdaAccount {
+pub struct CollectionAccount {
     pub owner: Pubkey,
     pub collection_mint: Pubkey,
     pub name: String,
@@ -548,4 +564,24 @@ pub struct CollectionPdaAccount {
     pub image_uri: String,
     pub count_nfts: u16,
     pub bump: u8,
+}
+
+impl CollectionAccount {
+    fn get_space(
+        name: String,
+        symbol: String,
+        image_uri: String
+    ) -> usize {
+        return DISCRIMINATOR_LENGTH
+            + PUBLIC_KEY_LENGTH
+            + PUBLIC_KEY_LENGTH
+            + Self::get_string_size(name)
+            + Self::get_string_size(symbol)
+            + Self::get_string_size(image_uri)
+            + U18_LENGTH
+            + U8_LENGTH;
+    }
+    fn get_string_size(property: String) -> usize {
+        return property.as_bytes().len() + STRING_PREFIX_LENGTH;
+    }
 }

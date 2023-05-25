@@ -126,8 +126,8 @@ describe('Solana NFTs', () => {
       .mintCollection(
         'My First Collection',
         'MFC',
-        'https://arweave.net/mF0bbubycS50wu2-WSkZoU2g5scupj0hfzk8eqFEtpA',
-        'https://arweave.net/l0Vjj3rZKQm-FVbCCj2OH15YMWAveUseuCLGkcPE-x0',
+        'https://arweave.net/l0Vjj3rZKQm-FVbCCj2OH15YMWAveUseuCLGkcPE-x0',    // Image URI
+        'https://arweave.net/mF0bbubycS50wu2-WSkZoU2g5scupj0hfzk8eqFEtpA',    // Metadata URI
       )
       .accounts({
         mint: collectionKP.publicKey,
@@ -163,12 +163,12 @@ describe('Solana NFTs', () => {
   });
 
   it('Get colletions', async () => {
-    const collections = await program.account.collectionPdaAccount.all();
+    const collections = await program.account.collectionAccount.all();
     expect(1).equal(collections.length);
   });
 
   /* it('Get colletions by owner', async () => {
-    const collections = await program.account.collectionPdaAccount.all([
+    const collections = await program.account.collectionAccount.all([
       {
         memcmp: {
           bytes: provider.wallet.publicKey.toBase58(),
