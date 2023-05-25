@@ -1,14 +1,12 @@
 use {
     anchor_lang::{
-        prelude::*, solana_program::program::invoke, solana_program::program::invoke_signed,
-        system_program, AnchorDeserialize, AnchorSerialize,
+        prelude::*, system_program, solana_program::program::invoke, solana_program::program::invoke_signed,
     },
-    anchor_spl::{associated_token, token, token::Token},
+    anchor_spl::{token, token::Token, associated_token},
     mpl_token_metadata::instruction::{
-        approve_collection_authority, create_master_edition_v3, create_metadata_accounts_v3,
-        set_and_verify_collection, sign_metadata, update_metadata_accounts_v2
-    },
-    mpl_token_metadata::state::Creator,
+        create_master_edition_v3, create_metadata_accounts_v3, update_metadata_accounts_v2,
+        approve_collection_authority, set_and_verify_collection, sign_metadata, 
+    }
 };
 
 declare_id!("GjsR1GVT5G51oMuTDrRzPporaknzWM39TgJs9n84Wmti");
@@ -53,7 +51,7 @@ pub mod solana_nft {
             Some(&ctx.accounts.mint_authority.key()),
         )?;
 
-        // Create ATA for mint_authority (user_pda)
+        // Create ATA for mint_authority
         associated_token::create(
             CpiContext::new(
                 ctx.accounts.associated_token_program.to_account_info(),
@@ -81,6 +79,7 @@ pub mod solana_nft {
             1,
         )?;
 
+        // Create metadata for token_mint
         let creators = vec![
             mpl_token_metadata::state::Creator {
                 address: ctx.accounts.mint_authority.key(),
@@ -89,7 +88,6 @@ pub mod solana_nft {
             }
         ];
 
-        // Create metadata for token_mint
         invoke(
             &create_metadata_accounts_v3(
                 ctx.accounts.token_metadata_program.key(),
@@ -134,7 +132,7 @@ pub mod solana_nft {
             ],
         )?;
 
-        // Create master edition
+        // Create master edition (collection)
         invoke(
             &create_master_edition_v3(
                 ctx.accounts.token_metadata_program.key(),
@@ -159,6 +157,7 @@ pub mod solana_nft {
             ],
         )?;
 
+        // Change collection authority to 'collection_pda'
         invoke(
             &approve_collection_authority(
                 ctx.accounts.token_metadata_program.key(),
@@ -198,6 +197,7 @@ pub mod solana_nft {
             ],
         )?;
 
+        // Set custom data account
         ctx.accounts.collection_pda.owner = ctx.accounts.payer.key();
         ctx.accounts.collection_pda.collection_mint = ctx.accounts.mint.key();
         ctx.accounts.collection_pda.name = collection_name;
@@ -205,6 +205,220 @@ pub mod solana_nft {
         ctx.accounts.collection_pda.image_uri = image_uri;
         ctx.accounts.collection_pda.count_nfts = 0;
         ctx.accounts.collection_pda.bump = *ctx.bumps.get("collection_pda").unwrap();
+
+        Ok(())
+    }
+
+    pub fn mint_from_collection(
+        ctx: Context<MintNFT>
+    ) -> Result<()> {
+
+        // Create an account to become it in the token_mint 
+        system_program::create_account(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                system_program::CreateAccount {
+                    from: ctx.accounts.mint_authority.to_account_info(),
+                    to: ctx.accounts.mint.to_account_info(),
+                },
+            ),
+            1461600,
+            82,
+            &ctx.accounts.token_program.key(),
+        )?;
+
+        // Create the token_mint
+        token::initialize_mint(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                token::InitializeMint {
+                    mint: ctx.accounts.mint.to_account_info(),
+                    rent: ctx.accounts.rent.to_account_info(),
+                },
+            ),
+            0,
+            &ctx.accounts.mint_authority.key(),
+            Some(&ctx.accounts.mint_authority.key()),
+        )?;
+
+        // Create ATA for mint_authority
+        associated_token::create(CpiContext::new(
+            ctx.accounts.associated_token_program.to_account_info(),
+            associated_token::Create {
+                payer: ctx.accounts.mint_authority.to_account_info(),
+                associated_token: ctx.accounts.token_account.to_account_info(),
+                authority: ctx.accounts.mint_authority.to_account_info(),
+                mint: ctx.accounts.mint.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                token_program: ctx.accounts.token_program.to_account_info(),
+            },
+        ))?;
+
+        // Mint NFT
+        token::mint_to(
+            CpiContext::new(
+                ctx.accounts.token_program.to_account_info(),
+                token::MintTo {
+                    mint: ctx.accounts.mint.to_account_info(),
+                    to: ctx.accounts.token_account.to_account_info(),
+                    authority: ctx.accounts.mint_authority.to_account_info(),
+                },
+            ),
+            1,
+        )?;
+        
+        Ok(())
+    }
+
+    pub fn set_metadata_and_master_edition(
+        ctx: Context<SetMintConfig>,
+        nft_name: String,
+        nft_uri: String,
+    ) -> Result<()> {
+
+        // Create metadata for token_mint
+        invoke(
+            &create_metadata_accounts_v3(
+                ctx.accounts.token_metadata_program.key(),
+                ctx.accounts.metadata.key(),
+                ctx.accounts.mint.key(),
+                ctx.accounts.mint_authority.key(),
+                ctx.accounts.payer.key(),
+                ctx.accounts.payer.key(),
+                nft_name.clone(),
+                ctx.accounts.collection_pda.symbol.to_string(),
+                nft_uri.clone(),
+                None,
+                0,
+                true,
+                true,
+                None,
+                None,
+                None,
+            ),
+            &[
+                ctx.accounts.metadata.to_account_info(),
+                ctx.accounts.mint.to_account_info(),
+                ctx.accounts.mint_authority.to_account_info(),
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.token_metadata_program.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+                ctx.accounts.rent.to_account_info(),
+            ],
+        )?;
+
+        // Invoke the Solana programs to mint the NFT to the reciever's account
+        invoke(
+            &create_master_edition_v3(
+                ctx.accounts.token_metadata_program.key(),
+                ctx.accounts.master_edition.key(),
+                ctx.accounts.mint.key(),
+                ctx.accounts.payer.key(),
+                ctx.accounts.mint_authority.key(),
+                ctx.accounts.metadata.key(),
+                ctx.accounts.payer.key(),
+                Some(0),
+            ),
+            &[
+                ctx.accounts.master_edition.to_account_info(),
+                ctx.accounts.mint.to_account_info(),
+                ctx.accounts.mint_authority.to_account_info(),
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.metadata.to_account_info(),
+                ctx.accounts.token_metadata_program.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+                ctx.accounts.rent.to_account_info(),
+            ],
+        )?;
+
+        // Update metadata for token_mint
+        let creators = vec![
+            mpl_token_metadata::state::Creator {
+                address: ctx.accounts.mint_authority.key(),
+                verified: false,
+                share: 100,
+            }
+        ];
+
+        let data = mpl_token_metadata::state::DataV2 {
+            name: nft_name,
+            symbol: ctx.accounts.collection_pda.symbol.clone(),
+            uri: nft_uri,
+            collection: None,
+            creators: Some(creators),
+            seller_fee_basis_points: 0,
+            uses: None,
+        };
+
+        invoke(
+            &update_metadata_accounts_v2(
+                ctx.accounts.token_metadata_program.key(),
+                ctx.accounts.metadata.key(),
+                ctx.accounts.payer.key(),
+                Some(ctx.accounts.collection_pda.key()),
+                Some(data),
+                Some(true),
+                Some(true),
+            ),
+            &[
+                ctx.accounts.token_metadata_program.to_account_info(),
+                ctx.accounts.metadata.to_account_info(),
+                ctx.accounts.payer.to_account_info(),
+            ],
+        )?;
+
+        // Sign Metadata (verify creator)
+        let collection_owner = ctx.accounts.collection_pda.owner;
+        let coll_mint = ctx.accounts.collection_pda.collection_mint;
+        let coll_bump = ctx.accounts.collection_pda.bump;
+        let _signer_seeds = [
+            b"collection".as_ref(),
+            collection_owner.as_ref(),
+            coll_mint.as_ref(),
+            &[coll_bump],
+        ];
+
+        invoke_signed(
+            &sign_metadata(
+                ctx.accounts.token_metadata_program.key(),
+                ctx.accounts.metadata.key(),
+                ctx.accounts.mint_authority.key(),
+            ),
+            &[
+                ctx.accounts.metadata.to_account_info(),
+                ctx.accounts.mint_authority.to_account_info(),
+            ],
+            &[&_signer_seeds],
+        )?;
+
+        // Verify master edition (collection)
+        invoke_signed(
+            &set_and_verify_collection(
+                ctx.accounts.token_metadata_program.key(),
+                ctx.accounts.metadata.key(),
+                ctx.accounts.collection_pda.key(),
+                ctx.accounts.payer.key(),
+                ctx.accounts.collection_pda.key(),
+                ctx.accounts.collection_mint.key(),
+                ctx.accounts.collection_metadata.key(),
+                ctx.accounts.collection_master_ed.key(),
+                None,
+            ),
+            &[
+                ctx.accounts.metadata.to_account_info(),
+                ctx.accounts.collection_pda.to_account_info(),
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.collection_pda.to_account_info(),
+                ctx.accounts.collection_mint.to_account_info(),
+                ctx.accounts.collection_metadata.to_account_info(),
+                ctx.accounts.collection_master_ed.to_account_info(),
+            ],
+            &[&_signer_seeds],
+        )?;
+
+        ctx.accounts.collection_pda.count_nfts += 1;
 
         Ok(())
     }
@@ -264,6 +478,94 @@ pub struct MintCollection<'info> {
         bump
     )]
     collection_pda: Box<Account<'info, CollectionPdaAccount>>,
+}
+
+#[derive(Accounts)]
+pub struct MintNFT<'info> {
+    /// CHECK:
+    #[account(mut)]
+    pub mint: Signer<'info>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub mint_authority: Signer<'info>,
+
+    pub rent: Sysvar<'info, Rent>,
+
+    pub system_program: Program<'info, System>,
+
+    pub token_program: Program<'info, Token>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub token_account: UncheckedAccount<'info>,
+
+    pub associated_token_program: Program<'info, associated_token::AssociatedToken>,
+}
+
+#[derive(Accounts)]
+pub struct SetMintConfig<'info> {
+    /// CHECK:
+    #[account(mut)]
+    pub mint: Signer<'info>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub mint_authority: Signer<'info>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub payer: AccountInfo<'info>,
+
+    pub rent: Sysvar<'info, Rent>,
+
+    pub system_program: Program<'info, System>,
+
+    pub token_program: Program<'info, Token>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub token_account: UncheckedAccount<'info>,
+
+    pub associated_token_program: Program<'info, associated_token::AssociatedToken>,
+
+    /// CHECK:
+    pub token_metadata_program: UncheckedAccount<'info>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub master_edition: UncheckedAccount<'info>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub metadata: UncheckedAccount<'info>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub collection_mint: UncheckedAccount<'info>,
+    
+    #[account(
+        mut,
+        seeds = [
+            b"collection".as_ref(),
+            payer.to_account_info().key.as_ref(),
+            collection_mint.to_account_info().key.as_ref()
+        ],
+        bump = collection_pda.bump
+    )]
+    collection_pda: Box<Account<'info, CollectionPdaAccount>>,
+    
+    /// CHECK:
+    #[account(mut)]
+    pub collection_metadata: UncheckedAccount<'info>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub collection_master_ed: UncheckedAccount<'info>,
+
+    /// CHECK: account checked in CPI
+    #[account(mut)]
+    collection_authority_record: UncheckedAccount<'info>,
 }
 
 #[account]

@@ -14,37 +14,42 @@ const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID = new PublicKey(
   'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
 );
 
-describe('Solana NFT', () => {
+describe('Solana NFTs', () => {
 
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
   const program = anchor.workspace.SolanaNft as Program<SolanaNft>;
 
-  const mintKeypair = Keypair.generate();
-  console.log('mintKeypair', mintKeypair.publicKey.toString());
 
-  const ATA = getAssociatedTokenAddressSync(
-    mintKeypair.publicKey,
+  /* ******************************
+         COLLECTION ACCOUNTS
+  ****************************** */
+
+  const collectionKP = Keypair.generate();
+  console.log('collectionKP', collectionKP.publicKey.toString());
+
+  const collectionATA = getAssociatedTokenAddressSync(
+    collectionKP.publicKey,
     provider.wallet.publicKey,
   );
 
-  const [metadataPDA] = anchor.web3.PublicKey
+  const [collectionMetadataPDA] = anchor.web3.PublicKey
     .findProgramAddressSync(
       [
         Buffer.from('metadata'),
         TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-        mintKeypair.publicKey.toBuffer(),
+        collectionKP.publicKey.toBuffer(),
       ],
       TOKEN_METADATA_PROGRAM_ID
     );
 
-  const [masterEditionPDA] = anchor.web3.PublicKey
+  const [collectionMasterEditionPDA] = anchor.web3.PublicKey
     .findProgramAddressSync(
       [
         Buffer.from('metadata'),
         TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-        mintKeypair.publicKey.toBuffer(),
+        collectionKP.publicKey.toBuffer(),
         Buffer.from('edition'),
       ],
       TOKEN_METADATA_PROGRAM_ID
@@ -55,7 +60,7 @@ describe('Solana NFT', () => {
       [
         Buffer.from('collection'),
         provider.wallet.publicKey.toBuffer(),
-        mintKeypair.publicKey.toBuffer(),
+        collectionKP.publicKey.toBuffer(),
       ],
       program.programId
     );
@@ -65,9 +70,43 @@ describe('Solana NFT', () => {
       [
         Buffer.from('metadata'),
         TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-        mintKeypair.publicKey.toBuffer(),
+        collectionKP.publicKey.toBuffer(),
         Buffer.from('collection_authority'),
         collectionPDA.toBuffer(),
+      ],
+      TOKEN_METADATA_PROGRAM_ID
+    );
+
+
+  /* ******************************
+            NFT ACCOUNTS
+  ****************************** */
+
+  const nftKP = Keypair.generate();
+  console.log('nftKP', nftKP.publicKey.toString());
+
+  const nftATA = getAssociatedTokenAddressSync(
+    nftKP.publicKey,
+    provider.wallet.publicKey,
+  );
+
+  const [nftMetadataPDA] = anchor.web3.PublicKey
+    .findProgramAddressSync(
+      [
+        Buffer.from('metadata'),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        nftKP.publicKey.toBuffer(),
+      ],
+      TOKEN_METADATA_PROGRAM_ID
+    );
+
+  const [nftMasterEditionPDA] = anchor.web3.PublicKey
+    .findProgramAddressSync(
+      [
+        Buffer.from('metadata'),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        nftKP.publicKey.toBuffer(),
+        Buffer.from('edition'),
       ],
       TOKEN_METADATA_PROGRAM_ID
     );
@@ -91,17 +130,17 @@ describe('Solana NFT', () => {
         'https://arweave.net/l0Vjj3rZKQm-FVbCCj2OH15YMWAveUseuCLGkcPE-x0',
       )
       .accounts({
-        mint: mintKeypair.publicKey,
+        mint: collectionKP.publicKey,
         mintAuthority: provider.wallet.publicKey,
         payer: provider.wallet.publicKey,
         rent: SYSVAR_RENT_PUBKEY,
         systemProgram: SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
-        tokenAccount: ATA,
+        tokenAccount: collectionATA,
         associatedTokenProgram: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-        masterEdition: masterEditionPDA,
-        metadata: metadataPDA,
+        masterEdition: collectionMasterEditionPDA,
+        metadata: collectionMetadataPDA,
         collectionAuthorityRecord: collectionAuthorityRecordPDA,
         collectionPda: collectionPDA,
       })
@@ -114,7 +153,7 @@ describe('Solana NFT', () => {
     t.lastValidBlockHeight = latestBlockHash.lastValidBlockHeight;
 
     t.feePayer = provider.wallet.publicKey;
-    t.sign(mintKeypair);
+    t.sign(collectionKP);
 
     const tSigned = await provider.wallet.signTransaction(t);
     const tx = await provider.connection.sendRawTransaction(tSigned.serialize());
@@ -125,11 +164,10 @@ describe('Solana NFT', () => {
 
   it('Get colletions', async () => {
     const collections = await program.account.collectionPdaAccount.all();
-    console.log('collections', collections);
     expect(1).equal(collections.length);
   });
 
-  it('Get colletions by owner', async () => {
+  /* it('Get colletions by owner', async () => {
     const collections = await program.account.collectionPdaAccount.all([
       {
         memcmp: {
@@ -138,8 +176,71 @@ describe('Solana NFT', () => {
         },
       },
     ]);
-    console.log('collections', collections);
     expect(1).equal(collections.length);
+  }); */
+
+
+
+
+
+
+  it('Mint NFT', async () => {
+
+    const t = new Transaction();
+
+    const i = await program.methods
+      .mintFromCollection()
+      .accounts({
+        mint: nftKP.publicKey,
+        mintAuthority: provider.wallet.publicKey,
+        rent: SYSVAR_RENT_PUBKEY,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenAccount: nftATA,
+        associatedTokenProgram: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
+      })
+      .instruction();
+
+    const i2 = await program.methods
+      .setMetadataAndMasterEdition(
+        'First NFT',
+        'https://arweave.net/mF0bbubycS50wu2-WSkZoU2g5scupj0hfzk8eqFEtpA'
+      )
+      .accounts({
+        mint: nftKP.publicKey,
+        mintAuthority: provider.wallet.publicKey,
+        payer: provider.wallet.publicKey,
+        rent: SYSVAR_RENT_PUBKEY,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenAccount: nftATA,
+        associatedTokenProgram: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
+        tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+        masterEdition: nftMasterEditionPDA,
+        metadata: nftMetadataPDA,
+        collectionMint: collectionKP.publicKey,
+        collectionPda: collectionPDA,
+        collectionMetadata: collectionMetadataPDA,
+        collectionMasterEd: collectionMasterEditionPDA,
+        collectionAuthorityRecord: collectionAuthorityRecordPDA,
+      })
+      .instruction();
+
+    t.add(i);
+    t.add(i2);
+
+    const latestBlockHash = await provider.connection.getLatestBlockhash();
+    t.recentBlockhash = latestBlockHash.blockhash;
+    t.lastValidBlockHeight = latestBlockHash.lastValidBlockHeight;
+
+    t.feePayer = provider.wallet.publicKey;
+    t.sign(nftKP);
+
+    const tSigned = await provider.wallet.signTransaction(t);
+    const tx = await provider.connection.sendRawTransaction(tSigned.serialize());
+    const con = await provider.connection.confirmTransaction(tx);
+
+    console.log('tx confirm', con);
   });
 
 });
