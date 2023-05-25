@@ -209,8 +209,10 @@ pub mod solana_nft {
         Ok(())
     }
 
-    pub fn mint_from_collection(
-        ctx: Context<MintNFT>
+    pub fn mint_nft_from_collection(
+        ctx: Context<MintNftFromCollection>,
+        nft_name: String,
+        nft_uri: String,
     ) -> Result<()> {
 
         // Create an account to become it in the token_mint 
@@ -266,15 +268,6 @@ pub mod solana_nft {
             ),
             1,
         )?;
-        
-        Ok(())
-    }
-
-    pub fn set_metadata_and_master_edition(
-        ctx: Context<SetMintConfig>,
-        nft_name: String,
-        nft_uri: String,
-    ) -> Result<()> {
 
         // Create metadata for token_mint
         invoke(
@@ -481,30 +474,7 @@ pub struct MintCollection<'info> {
 }
 
 #[derive(Accounts)]
-pub struct MintNFT<'info> {
-    /// CHECK:
-    #[account(mut)]
-    pub mint: Signer<'info>,
-
-    /// CHECK:
-    #[account(mut)]
-    pub mint_authority: Signer<'info>,
-
-    pub rent: Sysvar<'info, Rent>,
-
-    pub system_program: Program<'info, System>,
-
-    pub token_program: Program<'info, Token>,
-
-    /// CHECK:
-    #[account(mut)]
-    pub token_account: UncheckedAccount<'info>,
-
-    pub associated_token_program: Program<'info, associated_token::AssociatedToken>,
-}
-
-#[derive(Accounts)]
-pub struct SetMintConfig<'info> {
+pub struct MintNftFromCollection<'info> {
     /// CHECK:
     #[account(mut)]
     pub mint: Signer<'info>,

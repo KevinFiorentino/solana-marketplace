@@ -179,30 +179,17 @@ describe('Solana NFTs', () => {
     expect(1).equal(collections.length);
   }); */
 
-
-
-
-
-
   it('Mint NFT', async () => {
 
     const t = new Transaction();
 
-    const i = await program.methods
-      .mintFromCollection()
-      .accounts({
-        mint: nftKP.publicKey,
-        mintAuthority: provider.wallet.publicKey,
-        rent: SYSVAR_RENT_PUBKEY,
-        systemProgram: SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        tokenAccount: nftATA,
-        associatedTokenProgram: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
-      })
-      .instruction();
+    const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({ 
+      units: 300000 
+    });
+    t.add(modifyComputeUnits);
 
-    const i2 = await program.methods
-      .setMetadataAndMasterEdition(
+    const i = await program.methods
+      .mintNftFromCollection(
         'First NFT',
         'https://arweave.net/mF0bbubycS50wu2-WSkZoU2g5scupj0hfzk8eqFEtpA'
       )
@@ -227,7 +214,6 @@ describe('Solana NFTs', () => {
       .instruction();
 
     t.add(i);
-    t.add(i2);
 
     const latestBlockHash = await provider.connection.getLatestBlockhash();
     t.recentBlockhash = latestBlockHash.blockhash;
