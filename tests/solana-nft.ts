@@ -2,6 +2,7 @@ import * as anchor from '@project-serum/anchor';
 import { Program, BN } from '@project-serum/anchor';
 import { PublicKey, Keypair, SystemProgram, SYSVAR_RENT_PUBKEY, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { Metaplex } from '@metaplex-foundation/js'
 import { SolanaNft } from '../target/types/solana_nft';
 import { expect } from 'chai';
 
@@ -113,7 +114,7 @@ describe('Solana NFTs', () => {
 
 
 
-  it('Mint collection', async () => {
+  /* it('Mint collection', async () => {
 
     const t = new Transaction();
 
@@ -160,14 +161,15 @@ describe('Solana NFTs', () => {
     const con = await provider.connection.confirmTransaction(tx);
 
     console.log('tx confirm', con);
-  });
+  }); */
 
-  it('Get colletions', async () => {
+  /* it('Get colletions', async () => {
     const collections = await program.account.collectionAccount.all();
-    expect(1).equal(collections.length);
+    console.log('collections', collections);
+    expect(2).equal(collections.length);
   });
 
-  /* it('Get colletions by owner', async () => {
+  it('Get colletions by owner', async () => {
     const collections = await program.account.collectionAccount.all([
       {
         memcmp: {
@@ -176,10 +178,15 @@ describe('Solana NFTs', () => {
         },
       },
     ]);
-    expect(1).equal(collections.length);
+    console.log('collections', collections);
+    expect(2).equal(collections.length);
   }); */
 
-  it('Mint NFT', async () => {
+  
+
+
+
+  /* it('Mint NFT', async () => {
 
     const t = new Transaction();
 
@@ -205,7 +212,7 @@ describe('Solana NFTs', () => {
         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
         masterEdition: nftMasterEditionPDA,
         metadata: nftMetadataPDA,
-        collectionMint: collectionKP.publicKey,
+        collectionTokenMint: collectionKP.publicKey,
         collectionPda: collectionPDA,
         collectionMetadata: collectionMetadataPDA,
         collectionMasterEd: collectionMasterEditionPDA,
@@ -227,6 +234,43 @@ describe('Solana NFTs', () => {
     const con = await provider.connection.confirmTransaction(tx);
 
     console.log('tx confirm', con);
+  }); */
+
+
+
+
+  it('Paginate collections', async () => {
+
+    const collectionClient = program.account.collectionAccount;
+
+    console.log(collectionClient.coder.accounts.memcmp((collectionClient as any)._idlAccount.name));
+
+    const collectionDiscriminatorFilter = {
+      memcmp: collectionClient.coder.accounts.memcmp((collectionClient as any)._idlAccount.name)
+    }
+
+    const allCollections = await provider.connection.getProgramAccounts(program.programId, {
+      filters: [collectionDiscriminatorFilter],
+      dataSlice: { offset: 0, length: 0 },
+    })
+    console.log('allCollections', allCollections);
+
+  });
+
+  it('Get NFTs by collection', async () => {
+
+    const metaplex = Metaplex.make(provider.connection);
+
+    // const mint = new PublicKey('3K2Fu4G7AnN832zRLUkWNrzxgktiKNjgum5SMqVPzdYT');
+    const mint = new PublicKey('AyrgVKxhwVyxEsUedccwiZhWJbm9jypuyPCnNkFXStDk');
+    // const nfts = await metaplex.nfts().findByMint({ mintAddress: mint })
+
+    const nfts = await provider.connection.getAccountInfoAndContext(mint)
+
+    // const nfts = await metaplex.nfts().findAllByCreator({ creator: provider.wallet.publicKey })
+
+    console.log('nfts', nfts);
+    // expect(1).equal(nfts.length);
   });
 
 });

@@ -15,7 +15,7 @@ const STRING_PREFIX_LENGTH: usize = 4;
 const U18_LENGTH: usize = 2;
 const U8_LENGTH: usize = 1;
 
-declare_id!("GjsR1GVT5G51oMuTDrRzPporaknzWM39TgJs9n84Wmti");
+declare_id!("8Cf9ycYaBKpzMeJVmz5FivRa3wEf8Nzfb5QGh9wjxhyk");
 
 #[program]
 pub mod solana_nft {
@@ -205,7 +205,7 @@ pub mod solana_nft {
 
         // Set custom data account
         ctx.accounts.collection_pda.owner = ctx.accounts.payer.key();
-        ctx.accounts.collection_pda.collection_mint = ctx.accounts.mint.key();
+        ctx.accounts.collection_pda.token_mint = ctx.accounts.mint.key();
         ctx.accounts.collection_pda.name = collection_name;
         ctx.accounts.collection_pda.symbol = collection_symbol;
         ctx.accounts.collection_pda.image_uri = image_uri;
@@ -370,7 +370,7 @@ pub mod solana_nft {
 
         // Sign Metadata (verify creator)
         let collection_owner = ctx.accounts.collection_pda.owner;
-        let coll_mint = ctx.accounts.collection_pda.collection_mint;
+        let coll_mint = ctx.accounts.collection_pda.token_mint;
         let coll_bump = ctx.accounts.collection_pda.bump;
         let _signer_seeds = [
             b"collection".as_ref(),
@@ -400,7 +400,7 @@ pub mod solana_nft {
                 ctx.accounts.collection_pda.key(),
                 ctx.accounts.payer.key(),
                 ctx.accounts.collection_pda.key(),
-                ctx.accounts.collection_mint.key(),
+                ctx.accounts.collection_token_mint.key(),
                 ctx.accounts.collection_metadata.key(),
                 ctx.accounts.collection_master_ed.key(),
                 None,
@@ -410,7 +410,7 @@ pub mod solana_nft {
                 ctx.accounts.collection_pda.to_account_info(),
                 ctx.accounts.payer.to_account_info(),
                 ctx.accounts.collection_pda.to_account_info(),
-                ctx.accounts.collection_mint.to_account_info(),
+                ctx.accounts.collection_token_mint.to_account_info(),
                 ctx.accounts.collection_metadata.to_account_info(),
                 ctx.accounts.collection_master_ed.to_account_info(),
             ],
@@ -528,14 +528,14 @@ pub struct MintNftFromCollection<'info> {
 
     /// CHECK:
     #[account(mut)]
-    pub collection_mint: UncheckedAccount<'info>,
+    pub collection_token_mint: UncheckedAccount<'info>,
     
     #[account(
         mut,
         seeds = [
             b"collection".as_ref(),
             payer.to_account_info().key.as_ref(),
-            collection_mint.to_account_info().key.as_ref()
+            collection_token_mint.to_account_info().key.as_ref()
         ],
         bump = collection_pda.bump
     )]
@@ -558,7 +558,7 @@ pub struct MintNftFromCollection<'info> {
 #[derive(Default)]
 pub struct CollectionAccount {
     pub owner: Pubkey,
-    pub collection_mint: Pubkey,
+    pub token_mint: Pubkey,
     pub name: String,
     pub symbol: String,
     pub image_uri: String,
