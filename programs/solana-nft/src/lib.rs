@@ -13,7 +13,7 @@ const DISCRIMINATOR_LENGTH: usize = 8;
 const PUBLIC_KEY_LENGTH: usize = 32;
 const STRING_PREFIX_LENGTH: usize = 4;
 const I64_LENGTH: usize = 8;
-const U18_LENGTH: usize = 2;
+const U16_LENGTH: usize = 2;
 const U8_LENGTH: usize = 1;
 
 declare_id!("8Cf9ycYaBKpzMeJVmz5FivRa3wEf8Nzfb5QGh9wjxhyk");
@@ -616,7 +616,7 @@ impl CollectionAccount {
             + Self::get_string_size(name)
             + Self::get_string_size(symbol)
             + Self::get_string_size(image_uri)
-            + U18_LENGTH
+            + U16_LENGTH
             + U8_LENGTH
             + I64_LENGTH;
     }
