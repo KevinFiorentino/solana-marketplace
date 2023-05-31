@@ -12,6 +12,7 @@ use {
 const DISCRIMINATOR_LENGTH: usize = 8;
 const PUBLIC_KEY_LENGTH: usize = 32;
 const STRING_PREFIX_LENGTH: usize = 4;
+const I64_LENGTH: usize = 8;
 const U18_LENGTH: usize = 2;
 const U8_LENGTH: usize = 1;
 
@@ -203,6 +204,8 @@ pub mod solana_nft {
             ],
         )?;
 
+        let clock: Clock = Clock::get().unwrap();
+
         // Set custom data account
         ctx.accounts.collection_pda.owner = ctx.accounts.payer.key();
         ctx.accounts.collection_pda.token_mint = ctx.accounts.mint.key();
@@ -211,6 +214,7 @@ pub mod solana_nft {
         ctx.accounts.collection_pda.image_uri = image_uri;
         ctx.accounts.collection_pda.count_nfts = 0;
         ctx.accounts.collection_pda.bump = *ctx.bumps.get("collection_pda").unwrap();
+        ctx.accounts.collection_pda.created = clock.unix_timestamp;
 
         Ok(())
     }
@@ -218,7 +222,8 @@ pub mod solana_nft {
     pub fn mint_nft_from_collection(
         ctx: Context<MintNftFromCollection>,
         nft_name: String,
-        nft_uri: String,
+        nft_image_uri: String,
+        nft_metadata_uri: String,
     ) -> Result<()> {
 
         // Create an account to become it in the token_mint 
@@ -286,7 +291,7 @@ pub mod solana_nft {
                 ctx.accounts.payer.key(),
                 nft_name.clone(),
                 ctx.accounts.collection_pda.symbol.to_string(),
-                nft_uri.clone(),
+                nft_metadata_uri.clone(),
                 None,
                 0,
                 true,
@@ -342,9 +347,9 @@ pub mod solana_nft {
         ];
 
         let data = mpl_token_metadata::state::DataV2 {
-            name: nft_name,
+            name: nft_name.clone(),
             symbol: ctx.accounts.collection_pda.symbol.clone(),
-            uri: nft_uri,
+            uri: nft_metadata_uri.clone(),
             collection: None,
             creators: Some(creators),
             seller_fee_basis_points: 0,
@@ -417,7 +422,18 @@ pub mod solana_nft {
             &[&_signer_seeds],
         )?;
 
+        let clock: Clock = Clock::get().unwrap();
+
+        // Set collection data
         ctx.accounts.collection_pda.count_nfts += 1;
+
+        // Set nft data
+        ctx.accounts.nft_pda.token_mint = ctx.accounts.mint.key();
+        ctx.accounts.nft_pda.collection_mint = ctx.accounts.collection_token_mint.key();
+        ctx.accounts.nft_pda.collection_pda = ctx.accounts.collection_pda.key();
+        ctx.accounts.nft_pda.name = nft_name;
+        ctx.accounts.nft_pda.image_uri = nft_image_uri;
+        ctx.accounts.nft_pda.created = clock.unix_timestamp;
 
         Ok(())
     }
@@ -490,6 +506,11 @@ pub struct MintCollection<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(
+    nft_name: String,
+    nft_image_uri: String,
+    _nft_metadata_uri: String,
+)]
 pub struct MintNftFromCollection<'info> {
     /// CHECK:
     #[account(mut)]
@@ -517,6 +538,22 @@ pub struct MintNftFromCollection<'info> {
 
     /// CHECK:
     pub token_metadata_program: UncheckedAccount<'info>,
+
+    #[account(
+        init,
+        payer = mint_authority,
+        space = NftAccount::get_space(
+            nft_name,
+            nft_image_uri
+        ),
+        seeds = [
+            b"nft".as_ref(),
+            collection_pda.to_account_info().key.as_ref(),
+            mint.to_account_info().key.as_ref()
+        ],
+        bump
+    )]
+    nft_pda: Box<Account<'info, NftAccount>>,
 
     /// CHECK:
     #[account(mut)]
@@ -564,6 +601,7 @@ pub struct CollectionAccount {
     pub image_uri: String,
     pub count_nfts: u16,
     pub bump: u8,
+    pub created: i64,
 }
 
 impl CollectionAccount {
@@ -579,7 +617,37 @@ impl CollectionAccount {
             + Self::get_string_size(symbol)
             + Self::get_string_size(image_uri)
             + U18_LENGTH
-            + U8_LENGTH;
+            + U8_LENGTH
+            + I64_LENGTH;
+    }
+    fn get_string_size(property: String) -> usize {
+        return property.as_bytes().len() + STRING_PREFIX_LENGTH;
+    }
+}
+
+#[account]
+#[derive(Default)]
+pub struct NftAccount {
+    pub token_mint: Pubkey,
+    pub collection_mint: Pubkey,
+    pub collection_pda: Pubkey,
+    pub name: String,
+    pub image_uri: String,
+    pub created: i64,
+}
+
+impl NftAccount {
+    fn get_space(
+        name: String,
+        image_uri: String
+    ) -> usize {
+        return DISCRIMINATOR_LENGTH
+            + PUBLIC_KEY_LENGTH
+            + PUBLIC_KEY_LENGTH
+            + PUBLIC_KEY_LENGTH
+            + Self::get_string_size(name)
+            + Self::get_string_size(image_uri)
+            + I64_LENGTH;
     }
     fn get_string_size(property: String) -> usize {
         return property.as_bytes().len() + STRING_PREFIX_LENGTH;
