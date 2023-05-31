@@ -187,9 +187,9 @@ describe('Solana NFTs', () => {
 
   it('Paginate collections by owner', async () => {
 
+    // Prepare query
     const collectionClient = program.account.collectionAccount;
     const accountName = (collectionClient as any)._idlAccount.name;
-
     const accountDiscriminatorFilter = {
       memcmp: collectionClient.coder.accounts.memcmp(accountName)
     };
@@ -200,6 +200,7 @@ describe('Solana NFTs', () => {
       }
     };
 
+    // Get all empty accounts, only public key
     const rawCollections = await provider.connection.getProgramAccounts(program.programId, {
       filters: [accountDiscriminatorFilter, ownerFilter],
       dataSlice: { offset: 0, length: 0 },
@@ -210,6 +211,7 @@ describe('Solana NFTs', () => {
       collectionsPDAs.push(c.pubkey);
     });
 
+    // It could be possible to fetch 10 by 10 account to paginate them
     const collections = await program.account.collectionAccount.fetchMultiple(collectionsPDAs);
     expect(1).equal(collections.length);
   });
@@ -272,21 +274,22 @@ describe('Solana NFTs', () => {
     console.log('tx confirm', con);
   });
 
-  it('Paginate NFTs by collection mint', async () => {
+  it('Paginate NFTs by collection pda', async () => {
     
+    // Prepare query
     const nftClient = program.account.nftAccount;
     const accountName = (nftClient as any)._idlAccount.name;
-
     const accountDiscriminatorFilter = {
       memcmp: nftClient.coder.accounts.memcmp(accountName)
     };
     const collectionFilter = {
       memcmp: {
-        bytes: collectionKP.publicKey.toBase58(),
+        bytes: collectionPDA.toBase58(),
         offset: 40
       }
     };
 
+    // Get all empty accounts, only public key
     const rawNfts = await provider.connection.getProgramAccounts(program.programId, {
       filters: [accountDiscriminatorFilter, collectionFilter],
       dataSlice: { offset: 0, length: 0 },
@@ -297,6 +300,7 @@ describe('Solana NFTs', () => {
       nftsPDAs.push(n.pubkey);
     });
 
+    // It could be possible to fetch 10 by 10 account to paginate them
     const nfts = await program.account.nftAccount.fetchMultiple(nftsPDAs);
     expect(1).equal(nfts.length);
   });

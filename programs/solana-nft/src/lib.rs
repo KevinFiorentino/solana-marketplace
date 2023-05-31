@@ -30,7 +30,7 @@ pub mod solana_nft {
         metadata_uri: String,
     ) -> Result<()> {
 
-        // Create an account to become it in the token_mint 
+        // Create an account to become it in the collection token_mint 
         system_program::create_account(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -44,7 +44,7 @@ pub mod solana_nft {
             &ctx.accounts.token_program.key(),
         )?;
 
-        // Create the token_mint
+        // Create the token_mint for the collection
         token::initialize_mint(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -73,7 +73,7 @@ pub mod solana_nft {
             )
         )?;
 
-        // Mint token
+        // Mint collection token
         token::mint_to(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -86,7 +86,7 @@ pub mod solana_nft {
             1,
         )?;
 
-        // Create metadata for token_mint
+        // Create metadata for the collection token_mint
         let creators = vec![
             mpl_token_metadata::state::Creator {
                 address: ctx.accounts.mint_authority.key(),
@@ -139,7 +139,7 @@ pub mod solana_nft {
             ],
         )?;
 
-        // Create master edition (collection)
+        // Create master edition for the collection
         invoke(
             &create_master_edition_v3(
                 ctx.accounts.token_metadata_program.key(),
@@ -164,7 +164,7 @@ pub mod solana_nft {
             ],
         )?;
 
-        // Change collection authority to 'collection_pda'
+        // Change collection authority to collection_pda
         invoke(
             &approve_collection_authority(
                 ctx.accounts.token_metadata_program.key(),
@@ -187,6 +187,7 @@ pub mod solana_nft {
             ]
         )?;
 
+        // Change update authority to collection_pda
         invoke(
             &update_metadata_accounts_v2(
                 ctx.accounts.token_metadata_program.key(),
@@ -204,9 +205,9 @@ pub mod solana_nft {
             ],
         )?;
 
+        // Set custom data collection account
         let clock: Clock = Clock::get().unwrap();
 
-        // Set custom data account
         ctx.accounts.collection_pda.owner = ctx.accounts.payer.key();
         ctx.accounts.collection_pda.token_mint = ctx.accounts.mint.key();
         ctx.accounts.collection_pda.name = collection_name;
@@ -226,7 +227,7 @@ pub mod solana_nft {
         nft_metadata_uri: String,
     ) -> Result<()> {
 
-        // Create an account to become it in the token_mint 
+        // Create an account to become it in the NFT token_mint
         system_program::create_account(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -240,7 +241,7 @@ pub mod solana_nft {
             &ctx.accounts.token_program.key(),
         )?;
 
-        // Create the token_mint
+        // Create the token_mint for the NFT
         token::initialize_mint(
             CpiContext::new(
                 ctx.accounts.token_program.to_account_info(),
@@ -280,7 +281,7 @@ pub mod solana_nft {
             1,
         )?;
 
-        // Create metadata for token_mint
+        // Create metadata for the NFT token_mint
         invoke(
             &create_metadata_accounts_v3(
                 ctx.accounts.token_metadata_program.key(),
@@ -312,7 +313,7 @@ pub mod solana_nft {
             ],
         )?;
 
-        // Invoke the Solana programs to mint the NFT to the reciever's account
+        // Create master edition for the NFT
         invoke(
             &create_master_edition_v3(
                 ctx.accounts.token_metadata_program.key(),
@@ -337,7 +338,7 @@ pub mod solana_nft {
             ],
         )?;
 
-        // Update metadata for token_mint
+        // Change update authority to nft_pda and set metadata
         let creators = vec![
             mpl_token_metadata::state::Creator {
                 address: ctx.accounts.mint_authority.key(),
@@ -397,7 +398,7 @@ pub mod solana_nft {
             &[&_signer_seeds],
         )?;
 
-        // Verify master edition (collection)
+        // Verify master edition
         invoke_signed(
             &set_and_verify_collection(
                 ctx.accounts.token_metadata_program.key(),
@@ -422,14 +423,12 @@ pub mod solana_nft {
             &[&_signer_seeds],
         )?;
 
+        // Set collection and NFT data
         let clock: Clock = Clock::get().unwrap();
 
-        // Set collection data
         ctx.accounts.collection_pda.count_nfts += 1;
 
-        // Set nft data
         ctx.accounts.nft_pda.token_mint = ctx.accounts.mint.key();
-        ctx.accounts.nft_pda.collection_mint = ctx.accounts.collection_token_mint.key();
         ctx.accounts.nft_pda.collection_pda = ctx.accounts.collection_pda.key();
         ctx.accounts.nft_pda.name = nft_name;
         ctx.accounts.nft_pda.image_uri = nft_image_uri;
@@ -629,7 +628,6 @@ impl CollectionAccount {
 #[derive(Default)]
 pub struct NftAccount {
     pub token_mint: Pubkey,
-    pub collection_mint: Pubkey,
     pub collection_pda: Pubkey,
     pub name: String,
     pub image_uri: String,
