@@ -15,69 +15,32 @@ const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID = new PublicKey(
   'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
 );
 
+const program = anchor.workspace.SolanaNft as Program<SolanaNft>;
+
 describe('Solana NFTs', () => {
 
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.SolanaNft as Program<SolanaNft>;
-
-
+  
   /* ******************************
          COLLECTION ACCOUNTS
   ****************************** */
 
   const collectionKP = Keypair.generate();
-  console.log('collectionKP', collectionKP.publicKey.toString());
-
+  const collectionTokenMint = collectionKP.publicKey;
+  
   const collectionATA = getAssociatedTokenAddressSync(
-    collectionKP.publicKey,
+    collectionTokenMint,
     provider.wallet.publicKey,
   );
+  const collectionPDA = getCollectionPDA(collectionTokenMint);
+  const collectionMetadataPDA = getMetadataPDA(collectionTokenMint);
+  const collectionMasterEditionPDA = getMasterEditionPDA(collectionTokenMint);
+  const collectionAuthorityRecordPDA = getCollectionAuthorityRecordPDA(collectionTokenMint, collectionPDA);
 
-  const [collectionPDA] = anchor.web3.PublicKey
-    .findProgramAddressSync(
-      [
-        Buffer.from('collection'),
-        provider.wallet.publicKey.toBuffer(),
-        collectionKP.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
+  console.log('collectionTokenMint', collectionTokenMint.toString());
   console.log('collectionPDA', collectionPDA.toString());
-
-  const [collectionMetadataPDA] = anchor.web3.PublicKey
-    .findProgramAddressSync(
-      [
-        Buffer.from('metadata'),
-        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-        collectionKP.publicKey.toBuffer(),
-      ],
-      TOKEN_METADATA_PROGRAM_ID
-    );
-
-  const [collectionMasterEditionPDA] = anchor.web3.PublicKey
-    .findProgramAddressSync(
-      [
-        Buffer.from('metadata'),
-        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-        collectionKP.publicKey.toBuffer(),
-        Buffer.from('edition'),
-      ],
-      TOKEN_METADATA_PROGRAM_ID
-    );
-
-  const [collectionAuthorityRecordPDA] = anchor.web3.PublicKey
-    .findProgramAddressSync(
-      [
-        Buffer.from('metadata'),
-        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-        collectionKP.publicKey.toBuffer(),
-        Buffer.from('collection_authority'),
-        collectionPDA.toBuffer(),
-      ],
-      TOKEN_METADATA_PROGRAM_ID
-    );
 
 
   /* ******************************
@@ -85,45 +48,18 @@ describe('Solana NFTs', () => {
   ****************************** */
 
   const nftKP = Keypair.generate();
-  console.log('nftKP', nftKP.publicKey.toString());
-
+  const nftTokenMint = nftKP.publicKey;
+  
   const nftATA = getAssociatedTokenAddressSync(
-    nftKP.publicKey,
+    nftTokenMint,
     provider.wallet.publicKey,
   );
-
-  const [nftPDA] = anchor.web3.PublicKey
-    .findProgramAddressSync(
-      [
-        Buffer.from('nft'),
-        collectionPDA.toBuffer(),
-        nftKP.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
+  const nftPDA = getNftPDA(collectionPDA, nftTokenMint);
+  const nftMetadataPDA = getMetadataPDA(nftTokenMint);
+  const nftMasterEditionPDA = getMasterEditionPDA(nftTokenMint);
+  
+  console.log('nftTokenMint', nftTokenMint.toString());
   console.log('nftPDA', nftPDA.toString());
-
-  const [nftMetadataPDA] = anchor.web3.PublicKey
-    .findProgramAddressSync(
-      [
-        Buffer.from('metadata'),
-        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-        nftKP.publicKey.toBuffer(),
-      ],
-      TOKEN_METADATA_PROGRAM_ID
-    );
-
-  const [nftMasterEditionPDA] = anchor.web3.PublicKey
-    .findProgramAddressSync(
-      [
-        Buffer.from('metadata'),
-        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-        nftKP.publicKey.toBuffer(),
-        Buffer.from('edition'),
-      ],
-      TOKEN_METADATA_PROGRAM_ID
-    );
-
 
 
   /* ******************************
@@ -181,7 +117,6 @@ describe('Solana NFTs', () => {
 
   it('Get all collections', async () => {
     const collections = await program.account.collectionAccount.all();
-    // console.log('collections', collections);
     expect(1).equal(collections.length);
   });
 
@@ -274,7 +209,7 @@ describe('Solana NFTs', () => {
     console.log('tx confirm', con);
   });
 
-  it('Paginate NFTs by collection pda', async () => {
+  it('Paginate NFTs by collection mint', async () => {
     
     // Prepare query
     const nftClient = program.account.nftAccount;
@@ -284,7 +219,7 @@ describe('Solana NFTs', () => {
     };
     const collectionFilter = {
       memcmp: {
-        bytes: collectionPDA.toBase58(),
+        bytes: collectionKP.publicKey.toBase58(),
         offset: 40
       }
     };
@@ -308,8 +243,84 @@ describe('Solana NFTs', () => {
   it('Get NFT by mint', async () => {
     const metaplex = Metaplex.make(provider.connection);
     const nft = await metaplex.nfts().findByMint({ mintAddress: nftKP.publicKey });
-    console.log(nft);
     expect(nftKP.publicKey.toString()).equal(nft.address.toString());
   });
 
 });
+
+
+/* ******************************
+       BUILD METAPLEX PDAs
+****************************** */
+
+function getMetadataPDA(tokenMint: PublicKey): PublicKey {
+  const [metadataPDA] = anchor.web3.PublicKey
+    .findProgramAddressSync(
+      [
+        Buffer.from('metadata'),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        tokenMint.toBuffer(),
+      ],
+      TOKEN_METADATA_PROGRAM_ID
+    );
+  return metadataPDA;
+}
+
+function getMasterEditionPDA(tokenMint: PublicKey): PublicKey {
+  const [masterEditionPDA] = anchor.web3.PublicKey
+    .findProgramAddressSync(
+      [
+        Buffer.from('metadata'),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        tokenMint.toBuffer(),
+        Buffer.from('edition'),
+      ],
+      TOKEN_METADATA_PROGRAM_ID
+    );
+  return masterEditionPDA;
+}
+
+function getCollectionAuthorityRecordPDA(collectionTokenMint: PublicKey, collectionPDA: PublicKey): PublicKey {
+  const [collectionAuthorityRecordPDA] = anchor.web3.PublicKey
+    .findProgramAddressSync(
+      [
+        Buffer.from('metadata'),
+        TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+        collectionTokenMint.toBuffer(),
+        Buffer.from('collection_authority'),
+        collectionPDA.toBuffer(),
+      ],
+      TOKEN_METADATA_PROGRAM_ID
+    );
+  return collectionAuthorityRecordPDA;
+}
+
+
+/* ******************************
+       BUILD CUSTOM PDAs
+****************************** */
+
+function getCollectionPDA(collectionTokenMint: PublicKey): PublicKey {
+  const [collectionPDA] = anchor.web3.PublicKey
+    .findProgramAddressSync(
+      [
+        Buffer.from('collection'),
+        collectionTokenMint.toBuffer(),
+      ],
+      program.programId
+    );
+  return collectionPDA;
+}
+
+function getNftPDA(collectionPDA: PublicKey, nftTokenMint: PublicKey): PublicKey {
+  const [nftPDA] = anchor.web3.PublicKey
+    .findProgramAddressSync(
+      [
+        Buffer.from('nft'),
+        collectionPDA.toBuffer(),
+        nftTokenMint.toBuffer(),
+      ],
+      program.programId
+    );
+  return nftPDA;
+}

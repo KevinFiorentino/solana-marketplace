@@ -13,7 +13,6 @@ const DISCRIMINATOR_LENGTH: usize = 8;
 const PUBLIC_KEY_LENGTH: usize = 32;
 const STRING_PREFIX_LENGTH: usize = 4;
 const I64_LENGTH: usize = 8;
-const U16_LENGTH: usize = 2;
 const U8_LENGTH: usize = 1;
 
 declare_id!("CsvQG7uR6AzA53YiHwkyfGSvpd54JdjdFgEDvU5WSXBb");
@@ -213,7 +212,6 @@ pub mod solana_nft {
         ctx.accounts.collection_pda.name = collection_name;
         ctx.accounts.collection_pda.symbol = collection_symbol;
         ctx.accounts.collection_pda.image_uri = image_uri;
-        ctx.accounts.collection_pda.count_nfts = 0;
         ctx.accounts.collection_pda.bump = *ctx.bumps.get("collection_pda").unwrap();
         ctx.accounts.collection_pda.created = clock.unix_timestamp;
 
@@ -375,12 +373,10 @@ pub mod solana_nft {
         )?;
 
         // Sign Metadata (verify creator)
-        let collection_owner = ctx.accounts.collection_pda.owner;
         let coll_mint = ctx.accounts.collection_pda.token_mint;
         let coll_bump = ctx.accounts.collection_pda.bump;
         let _signer_seeds = [
             b"collection".as_ref(),
-            collection_owner.as_ref(),
             coll_mint.as_ref(),
             &[coll_bump],
         ];
@@ -423,13 +419,11 @@ pub mod solana_nft {
             &[&_signer_seeds],
         )?;
 
-        // Set collection and NFT data
+        // Set NFT data
         let clock: Clock = Clock::get().unwrap();
 
-        ctx.accounts.collection_pda.count_nfts += 1;
-
         ctx.accounts.nft_pda.token_mint = ctx.accounts.mint.key();
-        ctx.accounts.nft_pda.collection_pda = ctx.accounts.collection_pda.key();
+        ctx.accounts.nft_pda.collection_mint = ctx.accounts.collection_token_mint.key();
         ctx.accounts.nft_pda.name = nft_name;
         ctx.accounts.nft_pda.image_uri = nft_image_uri;
         ctx.accounts.nft_pda.created = clock.unix_timestamp;
@@ -496,7 +490,6 @@ pub struct MintCollection<'info> {
         ),
         seeds = [
             b"collection".as_ref(),
-            payer.to_account_info().key.as_ref(),
             mint.to_account_info().key.as_ref()
         ],
         bump
@@ -570,7 +563,6 @@ pub struct MintNftFromCollection<'info> {
         mut,
         seeds = [
             b"collection".as_ref(),
-            payer.to_account_info().key.as_ref(),
             collection_token_mint.to_account_info().key.as_ref()
         ],
         bump = collection_pda.bump
@@ -598,7 +590,6 @@ pub struct CollectionAccount {
     pub name: String,
     pub symbol: String,
     pub image_uri: String,
-    pub count_nfts: u16,
     pub bump: u8,
     pub created: i64,
 }
@@ -615,7 +606,6 @@ impl CollectionAccount {
             + Self::get_string_size(name)
             + Self::get_string_size(symbol)
             + Self::get_string_size(image_uri)
-            + U16_LENGTH
             + U8_LENGTH
             + I64_LENGTH;
     }
@@ -628,7 +618,7 @@ impl CollectionAccount {
 #[derive(Default)]
 pub struct NftAccount {
     pub token_mint: Pubkey,
-    pub collection_pda: Pubkey,
+    pub collection_mint: Pubkey,
     pub name: String,
     pub image_uri: String,
     pub created: i64,
