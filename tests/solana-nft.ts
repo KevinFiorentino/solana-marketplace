@@ -79,7 +79,7 @@ describe('Solana NFTs', () => {
       .mintCollection(
         'My First Collection',
         'MFC',
-        'https://arweave.net/l0Vjj3rZKQm-FVbCCj2OH15YMWAveUseuCLGkcPE-x0',    // Image URI
+        'l0Vjj3rZKQm-FVbCCj2OH15YMWAveUseuCLGkcPE-x0',                        // IPFS Image Hash
         'https://arweave.net/mF0bbubycS50wu2-WSkZoU2g5scupj0hfzk8eqFEtpA',    // Metadata URI
       )
       .accounts({
@@ -169,7 +169,7 @@ describe('Solana NFTs', () => {
     const i = await program.methods
       .mintNftFromCollection(
         'First NFT',
-        'https://arweave.net/l0Vjj3rZKQm-FVbCCj2OH15YMWAveUseuCLGkcPE-x0',    // Image URI
+        'l0Vjj3rZKQm-FVbCCj2OH15YMWAveUseuCLGkcPE-x0',                        // IPFS Image Hash
         'https://arweave.net/mF0bbubycS50wu2-WSkZoU2g5scupj0hfzk8eqFEtpA',    // Metadata URI
       )
       .accounts({
