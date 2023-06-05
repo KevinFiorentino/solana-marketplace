@@ -15,7 +15,7 @@ const STRING_PREFIX_LENGTH: usize = 4;
 const I64_LENGTH: usize = 8;
 const U8_LENGTH: usize = 1;
 
-declare_id!("CsvQG7uR6AzA53YiHwkyfGSvpd54JdjdFgEDvU5WSXBb");
+declare_id!("Byxv35jh68V6HKwxrE5cDidP3658WJ7YyAasRpXH1sWv");
 
 #[program]
 pub mod solana_nft {
